@@ -76,10 +76,10 @@ class SchoolSectorSetter:
             sector_dict['street_name'] = sector[2]
             sector_dict['parity_odd'] = sector[24]
             sector_dict['parity_even'] = sector[21]
-            sector_dict['odd_start_number'] = int(sector[25])
-            sector_dict['odd_end_number'] = int(sector[26])
-            sector_dict['even_start_number'] = int(sector[22])
-            sector_dict['even_end_number'] = int(sector[23])
+            sector_dict['odd_start_number'] = self.__get_number(sector[25])
+            sector_dict['odd_end_number'] = self.__get_number(sector[26])
+            sector_dict['even_start_number'] =self.__get_number(sector[22])
+            sector_dict['even_end_number'] = self.__get_number(sector[23])
             sector_dict['sector'] = str(sector[19])
             self.cleaned_sector.append(sector_dict)
     
@@ -91,6 +91,12 @@ class SchoolSectorSetter:
                 return 'maternelle'
         except:
             pass
+    
+    def __get_number(self, attr_name):
+        try:
+            return int(attr_name)
+        except:
+            return 0
 
 
     def __address_normalizer(self):
@@ -116,6 +122,7 @@ class SchoolSectorSetter:
                         sector['parity_even'] ==  'T'
                     ):
                         address['sector'] = sector['sector']
+                        address['sector_type'] = sector['sector_type']
                     if (
                         sector['parity_even'] ==  'P' and
                         address['number'] % 2 == 0 and
@@ -123,6 +130,7 @@ class SchoolSectorSetter:
                         address['number'] <= sector['even_end_number']
                     ):
                         address['sector'] = sector['sector']
+                        address['sector_type'] = sector['sector_type']
                     if (
                         sector['parity_odd'] ==  'P' and
                         address['number'] % 2 != 0 and
@@ -130,6 +138,7 @@ class SchoolSectorSetter:
                         address['number'] <= sector['odd_end_number']
                     ):
                         address['sector'] = sector['sector']
+                        address['sector_type'] = sector['sector_type']
                     else:
                         pass
     

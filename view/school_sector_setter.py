@@ -4,7 +4,8 @@ from controller.client.csv_manager import CsvManager
 from config.settings.settings import (
     INPUT_DIR, INPUT_FILE, INPUT_DELIMITER, INPUT_QUOTECHAR,
     INPUT_REF_DIR, REF_FILE, REF_DELIMITER, REF_QUOTECHAR,
-    OUTPUT_DIR, OUTPUT_FILE, OUTPUT_FILE_PRERUN, RUNTYPE
+    OUTPUT_DIR, OUTPUT_MATERNELLE_FILE, OUTPUT_ELEMENTAIRE_FILE,
+    OUTPUT_FILE_PRERUN, RUNTYPE
 )
 
 
@@ -35,8 +36,13 @@ class SchoolSectorSetter:
             self.__sector_normalizer()
             self.__address_normalizer()
             self.__address_sector_setter()
+            maternelle_list = self.__filter_export()[0]
+            elementaire_list = self.__filter_export()[1]
             self.csv_manager.export_run_data(
-                OUTPUT_DIR, OUTPUT_FILE, self.cleaned_address
+                OUTPUT_DIR, OUTPUT_MATERNELLE_FILE, maternelle_list
+            )
+            self.csv_manager.export_run_data(
+                OUTPUT_DIR, OUTPUT_ELEMENTAIRE_FILE, elementaire_list
             )
 
     def __initial_name_matcher(self):
@@ -66,22 +72,26 @@ class SchoolSectorSetter:
         for sector in self.sector:
             sector_dict = {}
             sector_dict['id'] = sector[0]
+            sector_dict['sector_type'] = self.__set_sector_type(sector)
             sector_dict['street_name'] = sector[2]
-            sector_dict['parity'] = self.__parity_normalizer(sector)
-            sector_dict['start_number'] = int(sector[5])
-            sector_dict['end_number'] = int(sector[7])
-            sector_dict['sector'] = str(sector[9])
+            sector_dict['parity_odd'] = sector[24]
+            sector_dict['parity_even'] = sector[21]
+            sector_dict['odd_start_number'] = int(sector[25])
+            sector_dict['odd_end_number'] = int(sector[26])
+            sector_dict['even_start_number'] = int(sector[22])
+            sector_dict['even_end_number'] = int(sector[23])
+            sector_dict['sector'] = str(sector[19])
             self.cleaned_sector.append(sector_dict)
+    
+    def __set_sector_type(self, sector):
+        try:
+            if 'Elémentaire' in sector[19]:
+                return 'elementaire'
+            else:
+                return 'maternelle'
+        except:
+            pass
 
-    def __parity_normalizer(self, sector):
-        """
-        """
-        if sector[4] == 'i' or sector[4] == 'I':
-            return 'odd'
-        elif sector[4] == 'p' or sector[4] == 'P':
-            return 'even'
-        else:
-            return 'all'
 
     def __address_normalizer(self):
         """
@@ -102,26 +112,36 @@ class SchoolSectorSetter:
             for sector in self.cleaned_sector:
                 if address['street_name'] == sector['street_name']:
                     if (
-                        sector['parity'] == 'even' and 
+                        sector['parity_odd'] == 'T' and 
+                        sector['parity_even'] ==  'T'
+                    ):
+                        address['sector'] = sector['sector']
+                    if (
+                        sector['parity_even'] ==  'P' and
                         address['number'] % 2 == 0 and
-                        address['number'] >= sector['start_number'] and
-                        address['number'] <= sector['end_number']
+                        address['number'] >= sector['even_start_number'] and
+                        address['number'] <= sector['even_end_number']
                     ):
                         address['sector'] = sector['sector']
-                    elif (
-                        sector['parity'] == 'odd' and 
+                    if (
+                        sector['parity_odd'] ==  'P' and
                         address['number'] % 2 != 0 and
-                        address['number'] >= sector['start_number'] and
-                        address['number'] <= sector['end_number']
-                    ):
-                        address['sector'] = sector['sector']
-                    elif (
-                        sector['parity'] == 'all' and 
-                        address['number'] >= sector['start_number'] and
-                        address['number'] <= sector['end_number']
+                        address['number'] >= sector['odd_start_number'] and
+                        address['number'] <= sector['odd_end_number']
                     ):
                         address['sector'] = sector['sector']
                     else:
                         pass
+    
+    def __filter_export(self):
+        """
+        """
+        maternelle_list = []
+        elementaire_list = []
+        for address in self.cleaned_address:
+            if address['sector_type'] == 'maternelle':
+                maternelle_list.append(address)
+            else:
+                elementaire_list.append(address)
+        return  maternelle_list, elementaire_list
 
-            counter_all += 1

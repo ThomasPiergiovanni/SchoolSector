@@ -4,8 +4,7 @@ from controller.client.csv_manager import CsvManager
 from config.settings.settings import (
     INPUT_DIR, INPUT_FILE, INPUT_DELIMITER, INPUT_QUOTECHAR,
     INPUT_REF_DIR, REF_FILE, REF_DELIMITER, REF_QUOTECHAR,
-    OUTPUT_DIR, OUTPUT_MATERNELLE_FILE, OUTPUT_ELEMENTAIRE_FILE,
-    OUTPUT_FILE_PRERUN, RUNTYPE
+    OUTPUT_DIR, OUTPUT_FILE, OUTPUT_FILE_PRERUN, RUNTYPE
 )
 
 
@@ -36,13 +35,8 @@ class SchoolSectorSetter:
             self.__sector_normalizer()
             self.__address_normalizer()
             self.__address_sector_setter()
-            maternelle_list = self.__filter_export()[0]
-            elementaire_list = self.__filter_export()[1]
             self.csv_manager.export_run_data(
-                OUTPUT_DIR, OUTPUT_MATERNELLE_FILE, maternelle_list
-            )
-            self.csv_manager.export_run_data(
-                OUTPUT_DIR, OUTPUT_ELEMENTAIRE_FILE, elementaire_list
+                OUTPUT_DIR, OUTPUT_FILE, self.cleaned_address
             )
 
     def __initial_name_matcher(self):
@@ -72,23 +66,32 @@ class SchoolSectorSetter:
         for sector in self.sector:
             sector_dict = {}
             sector_dict['id'] = sector[0]
-            sector_dict['sector_type'] = self.__set_sector_type(sector)
-            sector_dict['street_name'] = sector[2]
+            sector_dict['sector_mat'] = self.__set_sector_mat(sector)
+            sector_dict['sector_ele'] = self.__set_sector_ele(sector)
+            sector_dict['street_name'] = sector[28]
             sector_dict['parity_odd'] = sector[24]
             sector_dict['parity_even'] = sector[21]
             sector_dict['odd_start_number'] = self.__get_number(sector[25])
             sector_dict['odd_end_number'] = self.__get_number(sector[26])
             sector_dict['even_start_number'] =self.__get_number(sector[22])
             sector_dict['even_end_number'] = self.__get_number(sector[23])
-            sector_dict['sector'] = str(sector[19])
             self.cleaned_sector.append(sector_dict)
     
-    def __set_sector_type(self, sector):
+    def __set_sector_mat(self, sector):
+        try:
+            if 'Maternelle' in sector[19]:
+                return sector[19]
+            else:
+                None
+        except:
+            pass
+
+    def __set_sector_ele(self, sector):
         try:
             if 'Elémentaire' in sector[19]:
-                return 'elementaire'
+                return sector[19]
             else:
-                return 'maternelle'
+                None
         except:
             pass
     
@@ -107,7 +110,8 @@ class SchoolSectorSetter:
             address_dict['id'] = address[0]
             address_dict['number'] = int(address[3])
             address_dict['street_name'] = address[15]
-            address_dict['sector'] = None
+            address_dict['sector_mat'] = None
+            address_dict['sector_ele'] = None
             address_dict['full_address'] = address[9]
             self.cleaned_address.append(address_dict)
         
@@ -118,39 +122,132 @@ class SchoolSectorSetter:
             for sector in self.cleaned_sector:
                 if address['street_name'] == sector['street_name']:
                     if (
-                        sector['parity_odd'] == 'T' and 
-                        sector['parity_even'] ==  'T'
+                        sector['parity_even'] ==  'T' and
+                        sector['parity_odd'] == 'T' and
+                        sector['sector_mat']
+                        
                     ):
-                        address['sector'] = sector['sector']
-                        address['sector_type'] = sector['sector_type']
-                    if (
-                        sector['parity_even'] ==  'P' and
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        sector['parity_even'] ==  'T' and
+                        sector['parity_odd'] == 'T' and
+                        sector['sector_ele']
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+
+                    elif (
+                        sector['parity_even'] == 'T' and
+                        (sector['parity_odd'] == 'P' or  sector['parity_odd'] == 'S') and
                         address['number'] % 2 == 0 and
-                        address['number'] >= sector['even_start_number'] and
-                        address['number'] <= sector['even_end_number']
+                        sector['sector_mat']
+        
                     ):
-                        address['sector'] = sector['sector']
-                        address['sector_type'] = sector['sector_type']
-                    if (
-                        sector['parity_odd'] ==  'P' and
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        sector['parity_even'] == 'T' and
+                        (sector['parity_odd'] == 'P' or  sector['parity_odd'] == 'S') and
+                        address['number'] % 2 == 0 and
+                        sector['sector_ele']
+        
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+                    elif (
+                        sector['parity_even'] == 'T' and
+                        sector['parity_odd'] == 'P' and
                         address['number'] % 2 != 0 and
                         address['number'] >= sector['odd_start_number'] and
-                        address['number'] <= sector['odd_end_number']
+                        address['number'] <= sector['odd_end_number'] and
+                        sector['sector_mat']
+             
                     ):
-                        address['sector'] = sector['sector']
-                        address['sector_type'] = sector['sector_type']
-                    else:
-                        pass
-    
-    def __filter_export(self):
-        """
-        """
-        maternelle_list = []
-        elementaire_list = []
-        for address in self.cleaned_address:
-            if address['sector_type'] == 'maternelle':
-                maternelle_list.append(address)
-            else:
-                elementaire_list.append(address)
-        return  maternelle_list, elementaire_list
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        sector['parity_even'] == 'T' and
+                        sector['parity_odd'] == 'P' and
+                        address['number'] % 2 != 0 and
+                        address['number'] >= sector['odd_start_number'] and
+                        address['number'] <= sector['odd_end_number'] and
+                        sector['sector_ele']
+             
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
 
+                    elif (
+                        sector['parity_even'] == 'P' and
+                        sector['parity_odd'] == 'T' and
+                        address['number'] % 2 == 0 and
+                        address['number'] >= sector['even_start_number'] and
+                        address['number'] <= sector['even_end_number'] and
+                        sector['sector_mat']
+             
+                    ):
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        sector['parity_even'] == 'P' and
+                        sector['parity_odd'] == 'T' and
+                        address['number'] % 2 == 0 and
+                        address['number'] >= sector['even_start_number'] and
+                        address['number'] <= sector['even_end_number'] and
+                        sector['sector_ele']
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+                    elif (
+                            (
+                                sector['parity_even'] == 'P' or  
+                                sector['parity_even'] == 'S'
+                        ) and
+                        sector['parity_odd'] == 'T' and
+                        address['number'] % 2 != 0 and
+                        sector['sector_mat']
+                    ):
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                            (
+                                sector['parity_even'] == 'P' or  
+                                sector['parity_even'] == 'S'
+                        ) and
+                        sector['parity_odd'] == 'T' and
+                        address['number'] % 2 != 0 and
+                        sector['sector_ele']
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+                    elif (
+                        sector['parity_even'] == 'P' and
+                        (sector['parity_odd'] == 'P' or sector['parity_odd'] == 'S') and
+                        address['number'] % 2 == 0 and
+                        address['number'] >= sector['even_start_number'] and
+                        address['number'] <= sector['even_end_number'] and
+                        sector['sector_mat']
+                    ):
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        sector['parity_even'] == 'P' and
+                        (sector['parity_odd'] == 'P' or sector['parity_odd'] == 'S') and
+                        address['number'] % 2 == 0 and
+                        address['number'] >= sector['even_start_number'] and
+                        address['number'] <= sector['even_end_number'] and
+                        sector['sector_ele']
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+                    elif (
+                        (sector['parity_even'] == 'P' or sector['parity_even'] == 'S')
+                        and
+                        sector['parity_odd'] == 'P' and
+                        address['number'] % 2 != 0 and
+                        address['number'] >= sector['odd_start_number'] and
+                        address['number'] <= sector['odd_end_number'] and
+                        sector['sector_mat']
+                    ):
+                        address['sector_mat'] = sector['sector_mat']
+                    elif (
+                        (sector['parity_even'] == 'P' or sector['parity_even'] == 'S')
+                        and
+                        sector['parity_odd'] == 'P' and
+                        address['number'] % 2 != 0 and
+                        address['number'] >= sector['odd_start_number'] and
+                        address['number'] <= sector['odd_end_number'] and
+                        sector['sector_ele']
+                    ):
+                        address['sector_ele'] = sector['sector_ele']
+                    else:
+                        print(address['full_address'],'-', address['sector_ele'],'-', address['sector_mat'] )

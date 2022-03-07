@@ -52,12 +52,14 @@ class CsvManager:
                 quotechar='"',
                 quoting=csv.QUOTE_MINIMAL
             )
-            filewriter.writerow([
-                "id",
-                "numero",
-                "nom_rue",
-                "nom_complet",
-                "bureau"
+            filewriter.writerow(
+                [
+                    "id",
+                    "numero",
+                    "nom_rue",
+                    "nom_complet",
+                    "secteur maternelle",
+                    "secteur elementaire"
                 ]
             )
             for item in data:
@@ -67,6 +69,7 @@ class CsvManager:
                         str(item['number']),
                         item['street_name'],
                         item['full_address'],
-                        item['sector']
+                        item['sector_mat'],
+                        item['sector_ele'],
                     ]
                 )
